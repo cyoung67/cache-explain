@@ -1,0 +1,19 @@
+{
+  "name": "cache-explain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Explain how a set of HTTP response headers will be cached.",
+  "type": "module",
+  "main": "dist/explain.js",
+  "bin": {
+    "cache-explain": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test dist/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

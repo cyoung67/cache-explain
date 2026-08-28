@@ -72,12 +72,15 @@ result.storable // false — a shared cache must not store a `private` response
   both are present.
 - Quoted directive values (`private="X-Foo, X-Bar"`) aren't split on the
   comma inside the quotes.
+- Qualified `private="field"` doesn't block a shared cache from storing the
+  response — only the named fields have to be stripped before reuse. A bare
+  `private` is what makes the whole response unstorable.
+- Qualified `no-cache="field"` doesn't force revalidation of the whole
+  response — only the named fields can't be reused without revalidating
+  first. A bare `no-cache` is what makes the whole response always-revalidate.
 
 ## What it doesn't handle yet
 
-- Qualified `no-cache="field"` / `private="field"` are parsed but not used in
-  the storable/fresh calculation — right now any `no-cache` is treated as
-  applying to the whole response.
 - `Age` is read directly off the header; it doesn't recompute age from
   request/response timestamps the way RFC 9111 section 4.2 describes, so
   clock skew between hops isn't corrected for.

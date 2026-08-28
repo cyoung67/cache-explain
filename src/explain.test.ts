@@ -54,6 +54,22 @@ test('parseCacheControl handles the awkward syntax cases', () => {
         assert.deepEqual(d.noCacheFields, [])
       },
     },
+    {
+      name: 'a qualified no-cache only lists fields, it does not set the bare flag',
+      input: 'no-cache="Set-Cookie"',
+      check: (d) => {
+        assert.equal(d.noCache, false)
+        assert.deepEqual(d.noCacheFields, ['Set-Cookie'])
+      },
+    },
+    {
+      name: 'a qualified private only lists fields, it does not set the bare flag',
+      input: 'private="Set-Cookie, X-Session"',
+      check: (d) => {
+        assert.equal(d.private, false)
+        assert.deepEqual(d.privateFields, ['Set-Cookie', 'X-Session'])
+      },
+    },
   ]
 
   for (const { input, check } of cases) {
@@ -131,6 +147,23 @@ test('explainCaching covers the header combinations that trip up naive implement
       name: 'a garbage Age header is treated as zero rather than crashing',
       headers: { 'cache-control': 'max-age=60', age: 'lots' },
       expect: { currentAgeSeconds: 0 },
+    },
+    {
+      name: 'a qualified private response is still storable by a shared cache, minus those fields',
+      headers: { 'cache-control': 'max-age=60, private="Set-Cookie"' },
+      cacheType: 'shared',
+      expect: { storable: true, excludedFromSharedCache: ['Set-Cookie'] },
+    },
+    {
+      name: 'a qualified private has nothing to strip for a private cache',
+      headers: { 'cache-control': 'max-age=60, private="Set-Cookie"' },
+      cacheType: 'private',
+      expect: { storable: true, excludedFromSharedCache: [] },
+    },
+    {
+      name: 'a qualified no-cache leaves the rest of the response freely reusable',
+      headers: { 'cache-control': 'max-age=3600, no-cache="Set-Cookie"' },
+      expect: { alwaysRevalidate: false, isFresh: true, fieldsRequiringRevalidation: ['Set-Cookie'] },
     },
   ]
 

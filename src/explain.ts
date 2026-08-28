@@ -97,17 +97,24 @@ export function parseCacheControl(headerValue: string): CacheControlDirectives {
       case 's-maxage':
         if (directives.sMaxAge === undefined) directives.sMaxAge = parseDeltaSeconds(value)
         break
-      case 'no-cache':
-        directives.noCache = true
-        if (value) directives.noCacheFields.push(...splitFieldNames(value))
+      case 'no-cache': {
+        // A field list qualifies the directive to just those response
+        // fields (RFC 9111 5.2.2.4); without one it applies to the whole
+        // response, which is the more restrictive case we track separately.
+        const fields = value !== undefined ? splitFieldNames(value) : []
+        if (fields.length > 0) directives.noCacheFields.push(...fields)
+        else directives.noCache = true
         break
+      }
       case 'no-store':
         directives.noStore = true
         break
-      case 'private':
-        directives.private = true
-        if (value) directives.privateFields.push(...splitFieldNames(value))
+      case 'private': {
+        const fields = value !== undefined ? splitFieldNames(value) : []
+        if (fields.length > 0) directives.privateFields.push(...fields)
+        else directives.private = true
         break
+      }
       case 'public':
         directives.public = true
         break
@@ -155,6 +162,8 @@ export interface ExplainResult {
   alwaysRevalidate: boolean
   mustRevalidateWhenStale: boolean
   varyStar: boolean
+  excludedFromSharedCache: string[]
+  fieldsRequiringRevalidation: string[]
   reasons: string[]
 }
 
@@ -196,6 +205,19 @@ export function explainCaching(input: ExplainInput): ExplainResult {
   if (varyStar && cacheType === 'shared')
     reasons.push('Vary: * present — a shared cache can never match a later request to this one')
 
+  const excludedFromSharedCache =
+    storable && cacheType === 'shared' && cc.privateFields.length > 0 ? cc.privateFields : []
+  if (excludedFromSharedCache.length > 0)
+    reasons.push(
+      `private="${excludedFromSharedCache.join(', ')}": a shared cache may store the rest of this response but must strip these fields before reuse`
+    )
+
+  const fieldsRequiringRevalidation = storable ? cc.noCacheFields : []
+  if (fieldsRequiringRevalidation.length > 0)
+    reasons.push(
+      `no-cache="${fieldsRequiringRevalidation.join(', ')}": these fields must not be reused without revalidation, even while otherwise fresh`
+    )
+
   return {
     cacheType,
     storable,
@@ -205,6 +227,8 @@ export function explainCaching(input: ExplainInput): ExplainResult {
     alwaysRevalidate: cc.noCache,
     mustRevalidateWhenStale,
     varyStar,
+    excludedFromSharedCache,
+    fieldsRequiringRevalidation,
     reasons,
   }
 }

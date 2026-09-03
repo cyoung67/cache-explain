@@ -159,6 +159,8 @@ export interface ExplainResult {
   freshnessLifetimeSeconds: number | null
   currentAgeSeconds: number
   isFresh: boolean | null
+  canServeStaleWhileRevalidating: boolean
+  canServeStaleIfError: boolean
   alwaysRevalidate: boolean
   mustRevalidateWhenStale: boolean
   varyStar: boolean
@@ -201,6 +203,36 @@ export function explainCaching(input: ExplainInput): ExplainResult {
   const mustRevalidateWhenStale = cc.mustRevalidate || (cacheType === 'shared' && cc.proxyRevalidate)
   if (mustRevalidateWhenStale) reasons.push('must not serve this stale without revalidating first')
 
+  // Both extensions (RFC 5861) only mean anything once the response is
+  // actually stale — a fresh response needs neither.
+  const staleSeconds =
+    isFresh === false && freshnessLifetimeSeconds !== null
+      ? currentAgeSeconds - freshnessLifetimeSeconds
+      : null
+
+  // must-revalidate is an explicit instruction not to use stale responses
+  // at all, which takes precedence over the swr grace window.
+  const canServeStaleWhileRevalidating =
+    staleSeconds !== null &&
+    cc.staleWhileRevalidate !== undefined &&
+    !mustRevalidateWhenStale &&
+    staleSeconds < cc.staleWhileRevalidate
+  if (canServeStaleWhileRevalidating)
+    reasons.push(
+      `stale-while-revalidate=${cc.staleWhileRevalidate}: ${staleSeconds}s past fresh, still inside the grace window — may serve stale while revalidating in the background`
+    )
+  else if (staleSeconds !== null && cc.staleWhileRevalidate !== undefined && mustRevalidateWhenStale)
+    reasons.push('stale-while-revalidate is ignored because must-revalidate is present')
+
+  // stale-if-error is a fallback for origin failure, not routine staleness
+  // policy, so must-revalidate doesn't suppress it the way it does swr.
+  const canServeStaleIfError =
+    staleSeconds !== null && cc.staleIfError !== undefined && staleSeconds < cc.staleIfError
+  if (canServeStaleIfError)
+    reasons.push(
+      `stale-if-error=${cc.staleIfError}: ${staleSeconds}s past fresh, still inside the grace window — may serve stale if revalidation fails`
+    )
+
   const varyStar = (lookupHeader(input.headers, 'vary') ?? '').trim() === '*'
   if (varyStar && cacheType === 'shared')
     reasons.push('Vary: * present — a shared cache can never match a later request to this one')
@@ -224,6 +256,8 @@ export function explainCaching(input: ExplainInput): ExplainResult {
     freshnessLifetimeSeconds,
     currentAgeSeconds,
     isFresh,
+    canServeStaleWhileRevalidating,
+    canServeStaleIfError,
     alwaysRevalidate: cc.noCache,
     mustRevalidateWhenStale,
     varyStar,

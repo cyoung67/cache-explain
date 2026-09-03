@@ -165,6 +165,39 @@ test('explainCaching covers the header combinations that trip up naive implement
       headers: { 'cache-control': 'max-age=3600, no-cache="Set-Cookie"' },
       expect: { alwaysRevalidate: false, isFresh: true, fieldsRequiringRevalidation: ['Set-Cookie'] },
     },
+    {
+      name: 'stale-while-revalidate covers a response just past its freshness lifetime',
+      headers: { 'cache-control': 'max-age=100, stale-while-revalidate=30', age: '110' },
+      expect: { isFresh: false, canServeStaleWhileRevalidating: true },
+    },
+    {
+      name: 'stale-while-revalidate does not cover a response past its own grace window',
+      headers: { 'cache-control': 'max-age=100, stale-while-revalidate=30', age: '200' },
+      expect: { isFresh: false, canServeStaleWhileRevalidating: false },
+    },
+    {
+      name: 'must-revalidate suppresses stale-while-revalidate',
+      headers: {
+        'cache-control': 'max-age=100, stale-while-revalidate=30, must-revalidate',
+        age: '110',
+      },
+      expect: { isFresh: false, canServeStaleWhileRevalidating: false },
+    },
+    {
+      name: 'stale-if-error covers a response just past its freshness lifetime',
+      headers: { 'cache-control': 'max-age=100, stale-if-error=60', age: '110' },
+      expect: { isFresh: false, canServeStaleIfError: true },
+    },
+    {
+      name: 'stale-if-error is not suppressed by must-revalidate',
+      headers: { 'cache-control': 'max-age=100, stale-if-error=60, must-revalidate', age: '110' },
+      expect: { isFresh: false, canServeStaleIfError: true },
+    },
+    {
+      name: 'a fresh response needs neither stale extension',
+      headers: { 'cache-control': 'max-age=100, stale-while-revalidate=30, stale-if-error=60', age: '10' },
+      expect: { isFresh: true, canServeStaleWhileRevalidating: false, canServeStaleIfError: false },
+    },
   ]
 
   for (const { name, headers, cacheType, expect: expected } of cases) {

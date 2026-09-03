@@ -78,6 +78,12 @@ result.storable // false — a shared cache must not store a `private` response
 - Qualified `no-cache="field"` doesn't force revalidation of the whole
   response — only the named fields can't be reused without revalidating
   first. A bare `no-cache` is what makes the whole response always-revalidate.
+- `stale-while-revalidate` and `stale-if-error` (RFC 5861) extend how long a
+  stale response stays usable — the former for routine background
+  revalidation, the latter as a fallback when revalidation fails outright.
+  `must-revalidate` cancels the `stale-while-revalidate` grace window, since
+  it's an explicit instruction never to serve stale; it does not cancel
+  `stale-if-error`, which only kicks in once revalidation has already failed.
 
 ## What it doesn't handle yet
 

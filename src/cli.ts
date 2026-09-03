@@ -34,6 +34,8 @@ function main(): void {
   console.log(`freshness lifetime: ${lifetime}`)
   console.log(`current age:        ${result.currentAgeSeconds}s`)
   console.log(`fresh:              ${result.isFresh ?? 'unknown'}`)
+  if (result.canServeStaleWhileRevalidating) console.log('stale-while-revalidate: within grace window')
+  if (result.canServeStaleIfError) console.log('stale-if-error:     within grace window')
   console.log('')
   for (const reason of result.reasons) {
     console.log(`- ${reason}`)

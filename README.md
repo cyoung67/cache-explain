@@ -47,6 +47,16 @@ evaluate as a browser cache rather than a shared cache (CDN, reverse proxy):
 curl -sI https://example.com | node dist/cli.js --private
 ```
 
+If you know when the request was sent and when the response was received —
+say, from timing a request yourself rather than reading headers off a
+prior capture — pass them along so the age calculation accounts for
+network delay and time already spent in cache instead of trusting the
+`Age` header verbatim:
+
+```
+node dist/cli.js --request-time=2026-08-25T12:00:00Z --response-time=2026-08-25T12:00:01Z headers.txt
+```
+
 ## Library usage
 
 ```ts
@@ -84,12 +94,17 @@ result.storable // false — a shared cache must not store a `private` response
   `must-revalidate` cancels the `stale-while-revalidate` grace window, since
   it's an explicit instruction never to serve stale; it does not cancel
   `stale-if-error`, which only kicks in once revalidation has already failed.
+- Current age is computed per RFC 9111 section 4.2.3, not just read off the
+  `Age` header: it takes the larger of the apparent age (response time minus
+  the `Date` header) and the `Age` header corrected for request/response
+  delay, then adds however long the response has been sitting in cache since
+  it was received. Without explicit `--request-time`/`--response-time`
+  (or their library equivalents), both default to `now`, which collapses
+  this back to the bare `Age` header — so nothing changes for callers who
+  don't have those timestamps.
 
 ## What it doesn't handle yet
 
-- `Age` is read directly off the header; it doesn't recompute age from
-  request/response timestamps the way RFC 9111 section 4.2 describes, so
-  clock skew between hops isn't corrected for.
 - Only the first `Cache-Control` header is read; a response with multiple
   `Cache-Control` header instances (as opposed to multiple directives in one
   instance) isn't merged.

@@ -213,3 +213,54 @@ test('explainCaching covers the header combinations that trip up naive implement
     }
   }
 })
+
+test('current age follows the RFC 9111 4.2.3 algorithm once request/response times are known', () => {
+  // Response carried Age: 5 and was generated (Date) 5s before it was
+  // received. It then sat in this cache for 100s before "now".
+  const responseTime = new Date('2026-01-01T00:00:00Z')
+  const now = new Date(responseTime.getTime() + 100_000)
+
+  const noSkew = explainCaching({
+    headers: { date: responseTime.toUTCString(), age: '5' },
+    now,
+    responseTime,
+  })
+  // apparent age 0s, corrected age value 5s (no request/response delay) ->
+  // corrected initial age 5s, plus 100s resident time.
+  assert.equal(noSkew.currentAgeSeconds, 105)
+
+  const withNetworkDelay = explainCaching({
+    headers: { date: responseTime.toUTCString(), age: '5' },
+    now,
+    requestTime: new Date(responseTime.getTime() - 20_000),
+    responseTime,
+  })
+  // corrected age value is now Age(5) + 20s response delay = 25s, which
+  // beats the 0s apparent age, plus the same 100s resident time.
+  assert.equal(withNetworkDelay.currentAgeSeconds, 125)
+
+  const staleDate = explainCaching({
+    headers: { date: new Date(responseTime.getTime() - 40_000).toUTCString(), age: '5' },
+    now,
+    responseTime,
+  })
+  // apparent age is 40s (response was received 40s after its Date), which
+  // beats the corrected age value of 5s, plus 100s resident time.
+  assert.equal(staleDate.currentAgeSeconds, 140)
+
+  const noTimestampsGiven = explainCaching({
+    headers: { age: '30' },
+    now,
+  })
+  // without request/response times, both default to `now`, collapsing the
+  // calculation back to the bare Age header.
+  assert.equal(noTimestampsGiven.currentAgeSeconds, 30)
+
+  const badDate = explainCaching({
+    headers: { date: 'not a date', age: '5' },
+    now,
+    responseTime,
+  })
+  assert.equal(badDate.currentAgeSeconds, 105)
+  assert.ok(badDate.reasons.some((r) => r.includes('Date header is present but not a valid date')))
+})

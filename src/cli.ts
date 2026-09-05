@@ -18,13 +18,25 @@ function readInput(path: string | undefined): string {
   return readFileSync(0, 'utf8') // stdin
 }
 
+function parseTimeFlag(args: string[], flag: string): Date | undefined {
+  const prefix = `${flag}=`
+  const arg = args.find((a) => a.startsWith(prefix))
+  if (arg === undefined) return undefined
+  const value = arg.slice(prefix.length)
+  const parsed = Date.parse(value)
+  if (Number.isNaN(parsed)) throw new Error(`${flag} value "${value}" is not a valid date`)
+  return new Date(parsed)
+}
+
 function main(): void {
   const args = process.argv.slice(2)
   const cacheType = args.includes('--private') ? 'private' : 'shared'
   const filePath = args.find((a) => !a.startsWith('--'))
+  const requestTime = parseTimeFlag(args, '--request-time')
+  const responseTime = parseTimeFlag(args, '--response-time')
 
   const headers = parseRawHeaders(readInput(filePath))
-  const result = explainCaching({ headers, cacheType })
+  const result = explainCaching({ headers, cacheType, requestTime, responseTime })
 
   const lifetime =
     result.freshnessLifetimeSeconds === null ? 'unknown' : `${result.freshnessLifetimeSeconds}s`

@@ -151,6 +151,13 @@ export interface ExplainInput {
   headers: Record<string, string>
   cacheType?: 'shared' | 'private'
   now?: Date
+  // When the request that produced this response was sent, and when the
+  // response was received — used to compute current age per RFC 9111
+  // 4.2.3 instead of trusting the Age header verbatim. If omitted, both
+  // default to `now`, which collapses the calculation back to "Age header
+  // plus zero correction", the same behavior as before these existed.
+  requestTime?: Date
+  responseTime?: Date
 }
 
 export interface ExplainResult {
@@ -189,7 +196,13 @@ export function explainCaching(input: ExplainInput): ExplainResult {
   const freshnessLifetimeSeconds = storable
     ? computeFreshnessLifetime(cc, cacheType, input.headers, now, reasons)
     : null
-  const currentAgeSeconds = computeCurrentAge(input.headers, reasons)
+  const currentAgeSeconds = computeCurrentAge(
+    input.headers,
+    now,
+    input.requestTime,
+    input.responseTime,
+    reasons
+  )
 
   const isFresh =
     freshnessLifetimeSeconds === null ? null : currentAgeSeconds < freshnessLifetimeSeconds
@@ -318,13 +331,51 @@ function computeFreshnessLifetime(
   return null
 }
 
-function computeCurrentAge(headers: Record<string, string>, reasons: string[]): number {
-  const ageValue = lookupHeader(headers, 'age')
-  if (ageValue === undefined) return 0
-  const age = parseDeltaSeconds(ageValue.trim())
-  if (age === undefined) {
-    reasons.push(`Age header "${ageValue}" is not a valid non-negative integer — treated as 0`)
-    return 0
+// RFC 9111 4.2.3: the Age header alone understates current age once you
+// account for how long the response sat in transit and how long it has
+// sat in this cache since being received. This follows the spec's
+// algorithm directly rather than just echoing the header back.
+function computeCurrentAge(
+  headers: Record<string, string>,
+  now: Date,
+  requestTime: Date | undefined,
+  responseTime: Date | undefined,
+  reasons: string[]
+): number {
+  const ageHeader = lookupHeader(headers, 'age')
+  let ageValue = 0
+  if (ageHeader !== undefined) {
+    const parsed = parseDeltaSeconds(ageHeader.trim())
+    if (parsed === undefined) {
+      reasons.push(`Age header "${ageHeader}" is not a valid non-negative integer — treated as 0`)
+    } else {
+      ageValue = parsed
+    }
   }
-  return age
+
+  const responseTimeMs = responseTime?.getTime() ?? now.getTime()
+  const requestTimeMs = requestTime?.getTime() ?? responseTimeMs
+
+  const dateHeader = lookupHeader(headers, 'date')
+  const dateMs = dateHeader !== undefined ? Date.parse(dateHeader) : NaN
+  if (dateHeader !== undefined && Number.isNaN(dateMs)) {
+    reasons.push('Date header is present but not a valid date — ignored when computing current age')
+  }
+
+  const apparentAgeSeconds = Number.isNaN(dateMs) ? 0 : Math.max(0, (responseTimeMs - dateMs) / 1000)
+  const responseDelaySeconds = Math.max(0, (responseTimeMs - requestTimeMs) / 1000)
+  const correctedAgeValue = ageValue + responseDelaySeconds
+  const correctedInitialAge = Math.max(apparentAgeSeconds, correctedAgeValue)
+  const residentTimeSeconds = Math.max(0, (now.getTime() - responseTimeMs) / 1000)
+  const currentAge = Math.max(0, Math.round(correctedInitialAge + residentTimeSeconds))
+
+  if (requestTime !== undefined || responseTime !== undefined || !Number.isNaN(dateMs)) {
+    reasons.push(
+      `current age per RFC 9111 4.2.3: max(apparent age ${Math.round(apparentAgeSeconds)}s, ` +
+        `Age header ${ageValue}s + ${Math.round(responseDelaySeconds)}s response delay) + ` +
+        `${Math.round(residentTimeSeconds)}s resident time = ${currentAge}s`
+    )
+  }
+
+  return currentAge
 }

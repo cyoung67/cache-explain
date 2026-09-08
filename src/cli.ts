@@ -2,13 +2,22 @@
 import { readFileSync } from 'node:fs'
 import { explainCaching } from './explain.js'
 
-function parseRawHeaders(text: string): Record<string, string> {
-  const headers: Record<string, string> = {}
+function parseRawHeaders(text: string): Record<string, string | string[]> {
+  const headers: Record<string, string | string[]> = {}
   for (const line of text.split(/\r?\n/)) {
     if (line.trim() === '') continue
     const colon = line.indexOf(':')
     if (colon === -1) continue
-    headers[line.slice(0, colon).trim()] = line.slice(colon + 1).trim()
+    const name = line.slice(0, colon).trim()
+    const value = line.slice(colon + 1).trim()
+
+    const existingKey = Object.keys(headers).find((k) => k.toLowerCase() === name.toLowerCase())
+    if (existingKey === undefined) {
+      headers[name] = value
+    } else {
+      const existing = headers[existingKey]
+      headers[existingKey] = Array.isArray(existing) ? [...existing, value] : [existing, value]
+    }
   }
   return headers
 }

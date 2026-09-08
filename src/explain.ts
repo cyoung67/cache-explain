@@ -148,7 +148,10 @@ export function parseCacheControl(headerValue: string): CacheControlDirectives {
 }
 
 export interface ExplainInput {
-  headers: Record<string, string>
+  // A value may be a string array to represent multiple header field
+  // instances with the same name (e.g. two separate Cache-Control lines).
+  // These are combined per RFC 9110 5.3 rather than only reading the first.
+  headers: Record<string, string | string[]>
   cacheType?: 'shared' | 'private'
   now?: Date
   // When the request that produced this response was sent, and when the
@@ -176,10 +179,20 @@ export interface ExplainResult {
   reasons: string[]
 }
 
-function lookupHeader(headers: Record<string, string>, name: string): string | undefined {
+// RFC 9110 5.3: multiple field lines with the same name are equivalent to
+// one field line with the values joined by ", ", in order. Applying that
+// uniformly here means a response with two Cache-Control lines gets its
+// directives merged instead of only the first line being seen.
+function lookupHeader(
+  headers: Record<string, string | string[]>,
+  name: string
+): string | undefined {
   const lower = name.toLowerCase()
   for (const key of Object.keys(headers)) {
-    if (key.toLowerCase() === lower) return headers[key]
+    if (key.toLowerCase() === lower) {
+      const value = headers[key]
+      return Array.isArray(value) ? value.join(', ') : value
+    }
   }
   return undefined
 }
@@ -299,7 +312,7 @@ function evaluateStorable(
 function computeFreshnessLifetime(
   cc: CacheControlDirectives,
   cacheType: 'shared' | 'private',
-  headers: Record<string, string>,
+  headers: Record<string, string | string[]>,
   now: Date,
   reasons: string[]
 ): number | null {
@@ -336,7 +349,7 @@ function computeFreshnessLifetime(
 // sat in this cache since being received. This follows the spec's
 // algorithm directly rather than just echoing the header back.
 function computeCurrentAge(
-  headers: Record<string, string>,
+  headers: Record<string, string | string[]>,
   now: Date,
   requestTime: Date | undefined,
   responseTime: Date | undefined,

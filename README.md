@@ -94,6 +94,9 @@ result.storable // false — a shared cache must not store a `private` response
   `must-revalidate` cancels the `stale-while-revalidate` grace window, since
   it's an explicit instruction never to serve stale; it does not cancel
   `stale-if-error`, which only kicks in once revalidation has already failed.
+- Multiple instances of the same header (two separate `Cache-Control` lines,
+  say) are combined into one comma-joined value per RFC 9110 5.3 before
+  parsing, rather than only the first instance being read.
 - Current age is computed per RFC 9111 section 4.2.3, not just read off the
   `Age` header: it takes the larger of the apparent age (response time minus
   the `Date` header) and the `Age` header corrected for request/response
@@ -102,12 +105,6 @@ result.storable // false — a shared cache must not store a `private` response
   (or their library equivalents), both default to `now`, which collapses
   this back to the bare `Age` header — so nothing changes for callers who
   don't have those timestamps.
-
-## What it doesn't handle yet
-
-- Only the first `Cache-Control` header is read; a response with multiple
-  `Cache-Control` header instances (as opposed to multiple directives in one
-  instance) isn't merged.
 
 ## Requirements
 

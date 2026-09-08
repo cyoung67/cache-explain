@@ -198,6 +198,16 @@ test('explainCaching covers the header combinations that trip up naive implement
       headers: { 'cache-control': 'max-age=100, stale-while-revalidate=30, stale-if-error=60', age: '10' },
       expect: { isFresh: true, canServeStaleWhileRevalidating: false, canServeStaleIfError: false },
     },
+    {
+      name: 'two Cache-Control header instances are merged as one comma-joined field, per RFC 9110 5.3',
+      headers: { 'cache-control': ['max-age=60', 'must-revalidate'] },
+      expect: { freshnessLifetimeSeconds: 60, mustRevalidateWhenStale: true },
+    },
+    {
+      name: 'a directive from a later Cache-Control instance does not beat an earlier one for the same name',
+      headers: { 'cache-control': ['max-age=10', 'max-age=20'] },
+      expect: { freshnessLifetimeSeconds: 10 },
+    },
   ]
 
   for (const { name, headers, cacheType, expect: expected } of cases) {

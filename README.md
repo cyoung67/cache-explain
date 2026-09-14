@@ -57,6 +57,35 @@ network delay and time already spent in cache instead of trusting the
 node dist/cli.js --request-time=2026-08-25T12:00:00Z --response-time=2026-08-25T12:00:01Z headers.txt
 ```
 
+Add `--json` to get the same result as a JSON object instead of the
+formatted text, for scripting or feeding into another tool:
+
+```
+node dist/cli.js --json headers.txt
+```
+
+```json
+{
+  "cacheType": "shared",
+  "storable": true,
+  "freshnessLifetimeSeconds": 300,
+  "currentAgeSeconds": 120,
+  "isFresh": true,
+  "canServeStaleWhileRevalidating": false,
+  "canServeStaleIfError": false,
+  "alwaysRevalidate": false,
+  "mustRevalidateWhenStale": true,
+  "varyStar": false,
+  "excludedFromSharedCache": [],
+  "fieldsRequiringRevalidation": [],
+  "reasons": [
+    "max-age=300 sets the freshness lifetime",
+    "fresh: age 120s is within the 300s lifetime",
+    "must not serve this stale without revalidating first"
+  ]
+}
+```
+
 ## Library usage
 
 ```ts

@@ -40,12 +40,18 @@ function parseTimeFlag(args: string[], flag: string): Date | undefined {
 function main(): void {
   const args = process.argv.slice(2)
   const cacheType = args.includes('--private') ? 'private' : 'shared'
+  const json = args.includes('--json')
   const filePath = args.find((a) => !a.startsWith('--'))
   const requestTime = parseTimeFlag(args, '--request-time')
   const responseTime = parseTimeFlag(args, '--response-time')
 
   const headers = parseRawHeaders(readInput(filePath))
   const result = explainCaching({ headers, cacheType, requestTime, responseTime })
+
+  if (json) {
+    console.log(JSON.stringify(result, null, 2))
+    return
+  }
 
   const lifetime =
     result.freshnessLifetimeSeconds === null ? 'unknown' : `${result.freshnessLifetimeSeconds}s`

@@ -10,6 +10,18 @@ reliably tell you what a browser or CDN will actually do with the response.
 This tool runs the same freshness calculation a cache would, following
 RFC 9111, and prints out the answer plus the reasoning that led to it.
 
+## Install
+
+```
+npm install cache-explain
+```
+
+Or run the CLI without installing it:
+
+```
+npx cache-explain headers.txt
+```
+
 ## Usage
 
 Save the response headers you want to check to a file, one `Name: value`
@@ -89,7 +101,7 @@ node dist/cli.js --json headers.txt
 ## Library usage
 
 ```ts
-import { explainCaching } from './src/explain.js'
+import { explainCaching } from 'cache-explain'
 
 const result = explainCaching({
   headers: { 'cache-control': 'private, max-age=60' },

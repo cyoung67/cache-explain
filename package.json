@@ -1,19 +1,46 @@
 {
   "name": "cache-explain",
   "version": "0.1.0",
-  "private": true,
   "description": "Explain how a set of HTTP response headers will be cached.",
   "type": "module",
   "main": "dist/explain.js",
+  "types": "dist/explain.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/explain.d.ts",
+      "default": "./dist/explain.js"
+    }
+  },
   "bin": {
     "cache-explain": "dist/cli.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "test": "node --test dist/*.test.js"
   },
+  "keywords": [
+    "http",
+    "cache-control",
+    "http-caching",
+    "rfc9111",
+    "freshness",
+    "cli"
+  ],
+  "author": "cyoung67",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cyoung67/cache-explain.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cyoung67/cache-explain/issues"
+  },
+  "homepage": "https://github.com/cyoung67/cache-explain#readme",
   "engines": {
     "node": ">=18"
-  },
-  "license": "MIT"
+  }
 }

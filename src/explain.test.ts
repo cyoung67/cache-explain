@@ -199,6 +199,21 @@ test('explainCaching covers the header combinations that trip up naive implement
       expect: { isFresh: true, canServeStaleWhileRevalidating: false, canServeStaleIfError: false },
     },
     {
+      name: 'immutable is reported while the response is fresh and storable',
+      headers: { 'cache-control': 'max-age=3600, immutable' },
+      expect: { immutable: true },
+    },
+    {
+      name: 'immutable is false when the directive is absent',
+      headers: { 'cache-control': 'max-age=3600' },
+      expect: { immutable: false },
+    },
+    {
+      name: 'immutable is not reported as a reason when no-store makes the response unstorable',
+      headers: { 'cache-control': 'no-store, immutable' },
+      expect: { immutable: true, storable: false },
+    },
+    {
       name: 'two Cache-Control header instances are merged as one comma-joined field, per RFC 9110 5.3',
       headers: { 'cache-control': ['max-age=60', 'must-revalidate'] },
       expect: { freshnessLifetimeSeconds: 60, mustRevalidateWhenStale: true },
@@ -222,6 +237,20 @@ test('explainCaching covers the header combinations that trip up naive implement
       )
     }
   }
+})
+
+test('immutable only shows up in reasons when the response is actually storable', () => {
+  const fresh = explainCaching({
+    headers: { 'cache-control': 'max-age=3600, immutable' },
+    now: FIXED_NOW,
+  })
+  assert.ok(fresh.reasons.some((r) => r.startsWith('immutable:')))
+
+  const unstorable = explainCaching({
+    headers: { 'cache-control': 'no-store, immutable' },
+    now: FIXED_NOW,
+  })
+  assert.ok(!unstorable.reasons.some((r) => r.startsWith('immutable:')))
 })
 
 test('current age follows the RFC 9111 4.2.3 algorithm once request/response times are known', () => {

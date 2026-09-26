@@ -172,6 +172,7 @@ export interface ExplainResult {
   canServeStaleWhileRevalidating: boolean
   canServeStaleIfError: boolean
   alwaysRevalidate: boolean
+  immutable: boolean
   mustRevalidateWhenStale: boolean
   varyStar: boolean
   excludedFromSharedCache: string[]
@@ -225,6 +226,13 @@ export function explainCaching(input: ExplainInput): ExplainResult {
   if (isFresh === false)
     reasons.push(`stale: age ${currentAgeSeconds}s exceeds the ${freshnessLifetimeSeconds}s lifetime`)
   if (cc.noCache) reasons.push('no-cache: must revalidate before every use, even while fresh')
+
+  // RFC 8246: a signal that the response body will not change while fresh,
+  // so a cache should not send a conditional request even when the client
+  // force-reloads. Only worth mentioning while the response is storable —
+  // it says nothing about what happens once the response goes stale.
+  if (storable && cc.immutable)
+    reasons.push('immutable: must not revalidate this while fresh, even on a client-forced reload')
 
   const mustRevalidateWhenStale = cc.mustRevalidate || (cacheType === 'shared' && cc.proxyRevalidate)
   if (mustRevalidateWhenStale) reasons.push('must not serve this stale without revalidating first')
@@ -285,6 +293,7 @@ export function explainCaching(input: ExplainInput): ExplainResult {
     canServeStaleWhileRevalidating,
     canServeStaleIfError,
     alwaysRevalidate: cc.noCache,
+    immutable: cc.immutable,
     mustRevalidateWhenStale,
     varyStar,
     excludedFromSharedCache,

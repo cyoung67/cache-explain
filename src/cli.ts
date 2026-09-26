@@ -63,6 +63,7 @@ function main(): void {
   console.log(`fresh:              ${result.isFresh ?? 'unknown'}`)
   if (result.canServeStaleWhileRevalidating) console.log('stale-while-revalidate: within grace window')
   if (result.canServeStaleIfError) console.log('stale-if-error:     within grace window')
+  if (result.immutable) console.log('immutable:          must not revalidate while fresh')
   console.log('')
   for (const reason of result.reasons) {
     console.log(`- ${reason}`)

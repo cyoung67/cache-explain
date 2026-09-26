@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- `immutable` (RFC 8246) was parsed but never surfaced. It's now reported as
+  its own `immutable` result field and reason, when the response is fresh
+  and storable.
+
 ## 0.1.0
 
 First release.

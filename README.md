@@ -86,6 +86,7 @@ node dist/cli.js --json headers.txt
   "canServeStaleWhileRevalidating": false,
   "canServeStaleIfError": false,
   "alwaysRevalidate": false,
+  "immutable": false,
   "mustRevalidateWhenStale": true,
   "varyStar": false,
   "excludedFromSharedCache": [],
@@ -135,6 +136,10 @@ result.storable // false — a shared cache must not store a `private` response
   `must-revalidate` cancels the `stale-while-revalidate` grace window, since
   it's an explicit instruction never to serve stale; it does not cancel
   `stale-if-error`, which only kicks in once revalidation has already failed.
+- `immutable` (RFC 8246) is surfaced as its own reason and result field
+  while the response is fresh and storable — it means a cache must not send
+  a conditional request for this response even when the client force-reloads,
+  until it actually expires.
 - Multiple instances of the same header (two separate `Cache-Control` lines,
   say) are combined into one comma-joined value per RFC 9110 5.3 before
   parsing, rather than only the first instance being read.
